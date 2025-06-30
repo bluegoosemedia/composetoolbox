@@ -1,8 +1,8 @@
 version: '3.9'
 
 services:
-  docker-toolbox:
-    image: ghcr.io/bluegoosemedia/dockertoolbox:latest
+  composetoolbox:
+    image: ghcr.io/bluegoosemedia/composetoolbox:latest
     ports:
       - "3000:3000"
     environment:

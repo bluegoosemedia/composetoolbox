@@ -1,6 +1,6 @@
 # ComposeToolbox
 
-ComposeToolbox is a self-hostable web application that allows users to edit, validate, and get suggestions for their docker-compose.yml files. It has a fully featured code editor as well as a configuration panel that breaks down what exactly the files does.
+ComposeToolbox is a self-hostable web application that allows users to edit, validate, and get suggestions for their docker-compose.yml files. It has a fully featured code editor as well as a configuration panel that breaks down what exactly the compose file does.
 
 ![Screenshot](screenshots/light.png)
 ![Screenshot](screenshots/dark.png)

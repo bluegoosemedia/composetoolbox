@@ -14,7 +14,7 @@ const defaultCompose = `version: '3.9'
 
 services:
   composetoolbox:
-    image: ghcr.io/bluegoosemedia/composetoolbox:latest
+    image: ghcr.io/bluegoosemedia/composetoolbox
     ports:
       - "3000:3000"
     environment:

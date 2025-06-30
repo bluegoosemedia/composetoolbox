@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode with better visual hierarchy */
+    --background: 210 20% 98%; /* Very light blue-gray background */
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* Pure white cards to stand out */
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 94%; /* Slightly darker secondary */
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 94%; /* Muted backgrounds */
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 94%; /* Accent backgrounds */
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 88%; /* Slightly more visible borders */
+    --input: 0 0% 100%; /* White input backgrounds */
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Monaco vs-dark theme colors */
+    --background: 0 0% 12%; /* #1e1e1e - Monaco's main background */
+    --foreground: 0 0% 85%; /* #d4d4d4 - Monaco's main text */
+    --card: 0 0% 9%; /* #171717 - Slightly darker for cards */
+    --card-foreground: 0 0% 85%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 85%;
+    --primary: 210 100% 70%; /* #569cd6 - Monaco's blue */
+    --primary-foreground: 0 0% 12%;
+    --secondary: 0 0% 15%; /* #262626 - Monaco's selection */
+    --secondary-foreground: 0 0% 85%;
+    --muted: 0 0% 15%; /* #262626 */
+    --muted-foreground: 0 0% 60%; /* #9d9d9d - Monaco's comments */
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 85%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 85%;
+    --border: 0 0% 20%; /* #333333 - Monaco's borders */
+    --input: 0 0% 15%;
+    --ring: 210 100% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Monaco-style scrollbar - adapts to theme automatically */
+.monaco-scrollbar::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.monaco-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.monaco-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 0;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.monaco-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+.monaco-scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: hsl(var(--muted-foreground) / 0.7);
+}
+
+.monaco-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* For Firefox */
+.monaco-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}

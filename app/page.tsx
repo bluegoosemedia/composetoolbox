@@ -3,12 +3,11 @@
 import { useState, useRef } from "react"
 import { Separator } from "@/components/ui/separator"
 import { Header } from "@/components/docker-compose/Header"
+import { Footer } from "@/components/docker-compose/Footer"
 import { EditorSection } from "@/components/docker-compose/EditorPanel"
 import { ConfigurationPanel } from "@/components/docker-compose/ConfigurationPanel"
-import { Footer } from "@/components/docker-compose/Footer"
 import { HelpDialog } from "@/components/docker-compose/HelpDialog"
 import { KeyboardShortcutsDialog } from "@/components/docker-compose/KeyboardShortcutsDialog"
-import { useSuppressResizeObserverError } from "@/hooks/use-suppress-resize-observer-error"
 
 const defaultCompose = `version: '3.9'
 
@@ -22,8 +21,6 @@ services:
     restart: unless-stopped`
 
 export default function DockerComposePage() {
-  // Silences noisy (but harmless) ResizeObserver warnings from Monaco
-  useSuppressResizeObserverError()
   const [compose, setCompose] = useState(defaultCompose)
   const [view, setView] = useState<"split" | "editor" | "configuration">("split")
   const [syntaxHighlighting, setSyntaxHighlighting] = useState(true)

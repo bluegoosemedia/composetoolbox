@@ -160,31 +160,7 @@ function validateYamlSyntax(yaml: string, lines: string[], issues: ValidationIss
 }
 
 function validateDockerComposeStructure(yaml: string, lines: string[], issues: ValidationIssue[]) {
-  // Check for version
-  if (!yaml.includes("version:")) {
-    issues.push({
-      type: "warning",
-      message: "Missing version field. Consider adding a version (e.g., version: '3.8')",
-      line: 1,
-      code: "compose-missing-version",
-    })
-  } else {
-    // Check version format
-    const versionMatch = yaml.match(/version:\s*['"]?([^'"\n]+)['"]?/)
-    if (versionMatch) {
-      const version = versionMatch[1].trim()
-      const validVersions = ["3.0", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9"]
-      if (!validVersions.includes(version)) {
-        const versionLine = lines.findIndex((line) => line.includes("version:")) + 1
-        issues.push({
-          type: "warning",
-          message: `Version "${version}" may not be supported. Consider using 3.8 or 3.9`,
-          line: versionLine,
-          code: "compose-version-warning",
-        })
-      }
-    }
-  }
+  // Remove the version check entirely since it's optional in Compose v2
 
   // Check for services section
   if (!yaml.includes("services:")) {

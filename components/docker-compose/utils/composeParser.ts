@@ -56,23 +56,25 @@ export const parseComposeOverview = (yaml: string): ComposeOverview => {
     }
   }
 
-  // Count networks
+  // Count networks - improved logic
   if (networksStartIndex !== -1) {
     for (let i = networksStartIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:/)) {
+      // Look for network definitions (2 spaces + name + optional colon)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?$/)) {
         networksCount++
       }
     }
   }
 
-  // Count volumes
+  // Count volumes - improved logic
   if (volumesStartIndex !== -1) {
     for (let i = volumesStartIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?$/)) {
+      // Look for volume definitions (2 spaces + name + optional colon)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?$/)) {
         volumesCount++
       }
     }
@@ -312,7 +314,7 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
             // Check for network names with configuration (like "docknet:")
             if (netLine.match(/^\s+[a-zA-Z][a-zA-Z0-9_-]*:$/)) {
               const networkName = trimmedLine.replace(":", "")
-              let ipAddress = null
+              let ipAddress: string | undefined = undefined
 
               // Look for IP address in the following lines
               for (let l = k + 1; l < serviceLines.length; l++) {
@@ -335,7 +337,7 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
             // Simple network list format (like "- networkname")
             else if (netLine.match(/^\s+-\s+/)) {
               const networkName = netLine.trim().substring(2)
-              service.networks.push({ name: networkName, ip: null })
+              service.networks.push({ name: networkName, ip: undefined })
             }
           }
         }
@@ -369,11 +371,11 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
     for (let i = networksStartIndex + 1; i < networksEndIndex; i++) {
       const line = lines[i]
 
-      // Only look for network definitions (2 spaces + name + colon)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:/)) {
+      // Look for network definitions (2 spaces + name + optional colon)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?$/)) {
         const networkName = line.trim().replace(":", "")
         let isExternal = false
-        let driver = null
+        let driver: string | undefined = undefined
 
         // Look ahead for external and driver properties within this network's scope
         for (let j = i + 1; j < networksEndIndex; j++) {
@@ -407,8 +409,9 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
     for (let i = volumesStartIndex + 1; i < volumesEndIndex; i++) {
       const line = lines[i]
 
-      // Only look for volume definitions (2 spaces + name + optional colon)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?$/)) {
+      // Look for volume definitions (2 spaces + name + optional colon)
+      // Allow dots in volume names (like caddy.etc, caddy.var)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?$/)) {
         const volumeName = line.trim().replace(":", "")
         volumes.push(volumeName)
       }

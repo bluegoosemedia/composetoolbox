@@ -1,3 +1,10 @@
+interface CustomTemplate {
+  name: string
+  icon: string
+  description?: string
+  code: string
+}
+
 export const getQuickTemplates = () => ({
   service: {
     name: "Generic Service",
@@ -65,3 +72,17 @@ export const getQuickTemplates = () => ({
       - "127.0.0.1:3000:3000"`,
   },
 })
+
+export const getCustomTemplates = async (): Promise<CustomTemplate[]> => {
+  try {
+    const response = await fetch('/api/custom-templates')
+    if (!response.ok) {
+      throw new Error('Failed to fetch custom templates')
+    }
+    const data = await response.json()
+    return data.templates || []
+  } catch (error) {
+    console.error('Error loading custom templates:', error)
+    return []
+  }
+}

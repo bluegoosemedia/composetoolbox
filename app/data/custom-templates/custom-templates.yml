@@ -1,0 +1,23 @@
+# Custom Docker Compose Templates
+# Add your own frequently used templates here
+# 
+# Structure:
+# - name: Display name for the template
+#   icon: Icon name (Container, Database, Network, HardDrive, Settings, Globe)
+#   code: The YAML code to insert (use proper indentation)
+#   description: Optional description
+
+templates:
+  - name: "Storage Pool Volume"
+    icon: "HardDrive" 
+    description: "Custom storage pool volume mapping"
+    code: |
+      volumes:
+      - /mnt/Storage/composetoolbox/data:/data
+  - name: "Dockernet"
+    icon: "HardDrive" 
+    description: "Custom docker network"
+    code: |
+      networks:
+        dockernet:
+          external: true

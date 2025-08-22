@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useRef } from "react"
+import { useRef, useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Code, Plus, Container, Database, Network, HardDrive, Settings, Globe } from "lucide-react"
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MonacoEditor } from "./MonacoEditor"
-import { getQuickTemplates } from "./utils/templates"
+import { getQuickTemplates, getCustomTemplates } from "./utils/templates"
 
 interface EditorSectionProps {
   compose: string
@@ -40,6 +40,25 @@ export const EditorSection = React.forwardRef<{ goToLine: (line: number) => void
       goToLine: (line: number) => void
     }>(null)
     const templates = getQuickTemplates()
+    const [customTemplates, setCustomTemplates] = useState<Array<{
+      name: string
+      icon: string
+      description?: string
+      code: string
+    }>>([])
+
+    // Load custom templates on component mount
+    useEffect(() => {
+      const loadCustomTemplates = async () => {
+        try {
+          const custom = await getCustomTemplates()
+          setCustomTemplates(custom)
+        } catch (error) {
+          console.error('Failed to load custom templates:', error)
+        }
+      }
+      loadCustomTemplates()
+    }, [])
 
     const insertTemplate = (template: string) => {
       if (editorRef.current) {
@@ -119,6 +138,25 @@ export const EditorSection = React.forwardRef<{ goToLine: (line: number) => void
                     {getIcon(templates.ports.icon)}
                     <span className="ml-2">{templates.ports.name}</span>
                   </DropdownMenuItem>
+                  {customTemplates.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Custom Templates
+                      </div>
+                      {customTemplates.map((template, index) => (
+                        <DropdownMenuItem key={index} onClick={() => insertTemplate(template.code)}>
+                          {getIcon(template.icon)}
+                          <div className="ml-2 flex flex-col">
+                            <span>{template.name}</span>
+                            {template.description && (
+                              <span className="text-xs text-muted-foreground">{template.description}</span>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

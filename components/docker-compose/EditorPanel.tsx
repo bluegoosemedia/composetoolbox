@@ -5,7 +5,7 @@ import React from "react"
 import { useRef, useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Code, Plus, Container, Database, Network, HardDrive, Settings, Globe } from "lucide-react"
+import { Code, Plus, Container, Database, Network, HardDrive, Settings, Globe, Server, Shield, Lock, Key, Mail, FileText, Cloud, Zap, Activity, Monitor, Cpu, MemoryStick, Wifi, Radio } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,20 @@ const iconMap = {
   HardDrive: HardDrive,
   Settings: Settings,
   Globe: Globe,
+  Server: Server,
+  Shield: Shield,
+  Lock: Lock,
+  Key: Key,
+  Mail: Mail,
+  FileText: FileText,
+  Cloud: Cloud,
+  Zap: Zap,
+  Activity: Activity,
+  Monitor: Monitor,
+  Cpu: Cpu,
+  MemoryStick: MemoryStick,
+  Wifi: Wifi,
+  Radio: Radio,
 }
 
 export const EditorSection = React.forwardRef<{ goToLine: (line: number) => void }, EditorSectionProps>(

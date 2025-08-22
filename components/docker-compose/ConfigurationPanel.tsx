@@ -18,6 +18,10 @@ import {
   ChevronRight,
   EyeOff,
   Terminal,
+  Shield,
+  Cpu,
+  RotateCcw,
+  GitBranch,
 } from "lucide-react"
 import { parseComposeOverview, parseDockerComposeStructured } from "./utils/composeParser"
 import { validateDockerCompose } from "./utils/validator"
@@ -203,6 +207,18 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
                                   {service.volumes.length}
                                 </span>
                               )}
+                              {service.sysctls.length > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Cpu className="w-3 h-3" />
+                                  {service.sysctls.length}
+                                </span>
+                              )}
+                              {service.cap_add.length > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Shield className="w-3 h-3" />
+                                  {service.cap_add.length}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -297,23 +313,75 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
                                 </div>
                               </div>
                             )}
+
+                            {/* Sysctls */}
+                            {service.sysctls.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Cpu className="w-3 h-3" />
+                                  <span className="font-medium">System Controls</span>
+                                </div>
+                                <div className="ml-4 space-y-1">
+                                  {service.sysctls.map((sysctl, i) => (
+                                    <div key={i} className="text-xs break-all">
+                                      <code className="bg-muted px-1 rounded">{sysctl.key}</code>
+                                      <span className="mx-1">=</span>
+                                      <span className="text-muted-foreground">{sysctl.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Capabilities */}
+                            {service.cap_add.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Shield className="w-3 h-3" />
+                                  <span className="font-medium">Added Capabilities</span>
+                                </div>
+                                <div className="ml-4 space-y-1">
+                                  {service.cap_add.map((capability, i) => (
+                                    <div key={i} className="text-xs">
+                                      <code className="bg-red-500/20 text-red-400 px-1 rounded">
+                                        {capability}
+                                      </code>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Additional Info */}
                           {(service.depends_on.length > 0 || service.restart || service.command) && (
-                            <div className="pt-2 border-t border-muted/50">
                               <div className="space-y-2 text-xs text-muted-foreground">
                                 {service.depends_on.length > 0 && (
-                                  <div className="break-all">
-                                    <span className="font-medium">Depends on:</span> {service.depends_on.join(", ")}
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1 text-muted-foreground">
+                                      <GitBranch className="w-3 h-3" />
+                                      <span className="font-medium">Depends on</span>
+                                    </div>
+                                    <div className="ml-4 space-y-1">
+                                      {service.depends_on.map((dependency, i) => (
+                                        <div key={i} className="text-xs break-all">
+                                          <code className="bg-muted px-1 rounded">{dependency}</code>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
                                 {service.restart && (
                                   <div>
-                                    <span className="font-medium">Restart:</span>{" "}
-                                    <code className="bg-yellow-500/20 text-yellow-400 px-1 rounded">
-                                      {service.restart}
-                                    </code>
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span className="font-medium">Restart:</span>
+                                    </div>
+                                    <div className="ml-4">
+                                      <code className="bg-yellow-500/20 text-yellow-400 px-1 rounded">
+                                        {service.restart}
+                                      </code>
+                                    </div>
                                   </div>
                                 )}
                                 {service.command && (
@@ -340,7 +408,6 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
                                   </div>
                                 )}
                               </div>
-                            </div>
                           )}
                         </div>
                       </div>

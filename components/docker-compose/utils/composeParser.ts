@@ -14,6 +14,8 @@ export interface ServiceConfig {
   depends_on: string[]
   restart?: string
   command?: string | string[] // Allow both string and array formats
+  sysctls: { key: string; value: string }[]
+  cap_add: string[]
 }
 
 export interface NetworkConfig {
@@ -131,6 +133,8 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
           volumes: [],
           networks: [],
           depends_on: [],
+          sysctls: [],
+          cap_add: [],
         }
 
         // Parse image
@@ -343,12 +347,86 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
         }
 
         // Parse depends_on
-        const dependsSection = serviceConfig.match(/^\s*depends_on:\s*\n([\s\S]*?)(?=^\s*[a-zA-Z_][a-zA-Z0-9_-]*:|$)/m)
-        if (dependsSection) {
-          const dependsLines = dependsSection[1].match(/^\s*-\s*(.+)/gm)
-          if (dependsLines) {
-            const dependencies = dependsLines.map((line) => line.replace(/^\s*-\s*/, "").trim())
-            service.depends_on = dependencies
+        let dependsOnStartIndex = -1
+        for (let k = 0; k < serviceLines.length; k++) {
+          if (serviceLines[k].trim().startsWith("depends_on:")) {
+            dependsOnStartIndex = k
+            break
+          }
+        }
+
+        if (dependsOnStartIndex !== -1) {
+          for (let k = dependsOnStartIndex + 1; k < serviceLines.length; k++) {
+            const dependsLine = serviceLines[k]
+            const trimmedLine = dependsLine.trim()
+
+            // If we hit another service property, stop
+            if (trimmedLine.match(/^[a-zA-Z_][a-zA-Z0-9_-]*:/) && !trimmedLine.startsWith("-")) {
+              break
+            }
+
+            // Check for dependency lines (dash followed by content)
+            if (dependsLine.match(/^\s{2,6}-\s+/)) {
+              const dependency = dependsLine.trim().substring(2).trim() // Remove "- " prefix
+              service.depends_on.push(dependency)
+            }
+          }
+        }
+
+        // Parse sysctls
+        let sysctlsStartIndex = -1
+        for (let k = 0; k < serviceLines.length; k++) {
+          if (serviceLines[k].trim().startsWith("sysctls:")) {
+            sysctlsStartIndex = k
+            break
+          }
+        }
+
+        if (sysctlsStartIndex !== -1) {
+          for (let k = sysctlsStartIndex + 1; k < serviceLines.length; k++) {
+            const sysctlLine = serviceLines[k]
+            const trimmedLine = sysctlLine.trim()
+
+            // If we hit another service property, stop
+            if (trimmedLine.match(/^[a-zA-Z_][a-zA-Z0-9_-]*:/) && !trimmedLine.startsWith("-")) {
+              break
+            }
+
+            // Check for sysctl lines (dash followed by content)
+            if (sysctlLine.match(/^\s{2,6}-\s+/)) {
+              const sysctl = sysctlLine.trim().substring(2) // Remove "- " prefix
+              const [key, value] = sysctl.split("=")
+              if (key && value) {
+                service.sysctls.push({ key: key.trim(), value: value.trim() })
+              }
+            }
+          }
+        }
+
+        // Parse cap_add
+        let capAddStartIndex = -1
+        for (let k = 0; k < serviceLines.length; k++) {
+          if (serviceLines[k].trim().startsWith("cap_add:")) {
+            capAddStartIndex = k
+            break
+          }
+        }
+
+        if (capAddStartIndex !== -1) {
+          for (let k = capAddStartIndex + 1; k < serviceLines.length; k++) {
+            const capLine = serviceLines[k]
+            const trimmedLine = capLine.trim()
+
+            // If we hit another service property, stop
+            if (trimmedLine.match(/^[a-zA-Z_][a-zA-Z0-9_-]*:/) && !trimmedLine.startsWith("-")) {
+              break
+            }
+
+            // Check for capability lines (dash followed by content)
+            if (capLine.match(/^\s{2,6}-\s+/)) {
+              const capability = capLine.trim().substring(2).trim() // Remove "- " prefix
+              service.cap_add.push(capability)
+            }
           }
         }
 

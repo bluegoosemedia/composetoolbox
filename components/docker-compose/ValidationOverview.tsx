@@ -140,18 +140,6 @@ export function ValidationOverview({ validation, onGoToLine }: ValidationOvervie
             ))}
           </div>
         )}
-
-        {/* Quick Tips for Common Issues */}
-        {validation.hasErrors && (
-          <div className="mt-3 p-2 bg-red-50 dark:bg-red-950 rounded text-xs">
-            <div className="font-medium text-red-700 dark:text-red-300 mb-1">💡 Quick Fixes:</div>
-            <ul className="text-red-600 dark:text-red-400 space-y-1">
-              <li>• Check for missing colons after keys</li>
-              <li>• Ensure proper indentation (2 spaces)</li>
-              <li>• Verify all services have image or build specified</li>
-            </ul>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

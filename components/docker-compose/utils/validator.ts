@@ -93,21 +93,103 @@ function validateYamlSyntax(yaml: string, lines: string[], issues: ValidationIss
       }
     }
 
-    // Check for missing colons after keys
+    // Check for unclosed quotes
+    if (trimmed && !trimmed.startsWith("#")) {
+      // Count quotes in the line
+      const doubleQuotes = (line.match(/"/g) || []).length
+      const singleQuotes = (line.match(/'/g) || []).length
+
+      // Check for odd number of quotes (unclosed quotes)
+      if (doubleQuotes % 2 !== 0) {
+        issues.push({
+          type: "error",
+          message: "Unclosed double quote detected. Each opening quote must have a matching closing quote.",
+          line: lineNumber,
+          code: "yaml-unclosed-quote",
+        })
+      }
+
+      if (singleQuotes % 2 !== 0) {
+        issues.push({
+          type: "error",
+          message: "Unclosed single quote detected. Each opening quote must have a matching closing quote.",
+          line: lineNumber,
+          code: "yaml-unclosed-quote",
+        })
+      }
+    }
+
+    // Check for missing spaces after colons
+    if (trimmed.includes(":") && !trimmed.startsWith("#")) {
+      // Look for colons not followed by space (except at end of line)
+      const colonWithoutSpace = /:[^\s]/
+      if (colonWithoutSpace.test(trimmed) && !trimmed.endsWith(":")) {
+        // Exclude valid cases that don't need spaces after colons:
+        // - URLs: http://, https://, tcp://, udp://, ftp://, etc.
+        // - Port mappings: "3000:3000", "1194:1194/udp", etc.
+        // - Time formats: "12:30", etc.
+        // - IPv6 addresses and other colon-separated values
+        const isValidColonUsage = 
+          trimmed.match(/\w+:\/\//) || // Protocol URLs (http://, tcp://, etc.)
+          trimmed.match(/["']?\d+:\d+/) || // Port mappings with or without quotes
+          trimmed.match(/\d+:\d+\/\w+/) || // Port mappings with protocol (1194:1194/udp)
+          trimmed.match(/^\s*-\s*["']?[\w.-]+:\d+/) || // List items with port mappings
+          trimmed.match(/^\s*-\s*["']?[\w.-]+:[\w.-]+/) || // List items with key:value
+          trimmed.match(/\w+:\w+/) && !trimmed.match(/^\s*\w+:\s*$/) // General colon-separated values but not YAML keys
+        
+        if (!isValidColonUsage) {
+          // Additional check: only flag if it looks like a YAML key-value pair
+          // A YAML key should be at the start of the line (after indentation) and followed by a colon
+          const yamlKeyPattern = /^\s*[a-zA-Z_][a-zA-Z0-9_-]*:[^\s]/
+          if (yamlKeyPattern.test(line)) {
+            issues.push({
+              type: "error",
+              message: "Missing space after colon. YAML requires a space after colons in key-value pairs.",
+              line: lineNumber,
+              code: "yaml-missing-space-after-colon",
+            })
+          }
+        }
+      }
+    }
+
+    // Check for missing colons after keys (improved regex)
     if (
       trimmed &&
       !trimmed.startsWith("#") &&
       !trimmed.startsWith("-") &&
       !trimmed.includes(":") &&
       !trimmed.match(/^\s*$/) &&
-      !trimmed.includes("=") // Exclude environment variables with = syntax
+      !trimmed.includes("=") && // Exclude environment variables with = syntax
+      trimmed.match(/^[a-zA-Z_][a-zA-Z0-9_-]*$/) // Only flag if it looks like a key
     ) {
       issues.push({
         type: "error",
-        message: "Missing colon after key",
+        message: "Missing colon after key. YAML keys must be followed by a colon.",
         line: lineNumber,
         code: "yaml-missing-colon",
       })
+    }
+
+    // Check for malformed key-value pairs (like "3.9services:")
+    if (trimmed.includes(":") && !trimmed.startsWith("#") && !trimmed.startsWith("-")) {
+      const beforeColon = trimmed.split(":")[0]
+      // Check if there's text immediately before colon without proper separation
+      if (beforeColon.match(/[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/)) {
+        const afterColon = trimmed.split(":")[1] || ""
+        // If there's text immediately after the colon without space, it might be malformed
+        if (afterColon && !afterColon.startsWith(" ") && !afterColon.startsWith("\t")) {
+          // Check if it looks like a malformed version + services combination
+          if (beforeColon.match(/["']?[0-9.]+["']?[a-zA-Z]/)) {
+            issues.push({
+              type: "error",
+              message: "Malformed YAML structure. Missing newline or proper spacing between elements.",
+              line: lineNumber,
+              code: "yaml-malformed-structure",
+            })
+          }
+        }
+      }
     }
 
     // Check for invalid image syntax (trailing colon with no tag)
@@ -156,11 +238,78 @@ function validateYamlSyntax(yaml: string, lines: string[], issues: ValidationIss
         }
       }
     }
+
+    // Check for invalid list item syntax
+    if (trimmed.startsWith("-") && !trimmed.startsWith("- ") && trimmed.length > 1) {
+      issues.push({
+        type: "error",
+        message: "Invalid list item syntax. List items must have a space after the dash (- item).",
+        line: lineNumber,
+        code: "yaml-invalid-list-syntax",
+      })
+    }
+
+    // Check for mixed indentation styles
+    if (line.length > 0 && !trimmed.startsWith("#")) {
+      const leadingWhitespace = line.match(/^(\s*)/)?.[1] || ""
+      if (leadingWhitespace.includes(" ") && leadingWhitespace.includes("\t")) {
+        issues.push({
+          type: "error",
+          message: "Mixed indentation detected. Use either spaces or tabs consistently (spaces recommended).",
+          line: lineNumber,
+          code: "yaml-mixed-indentation",
+        })
+      }
+    }
+  })
+
+  // Check for overall structure issues
+  validateOverallStructure(yaml, lines, issues)
+}
+
+function validateOverallStructure(yaml: string, lines: string[], issues: ValidationIssue[]) {
+  // Check for completely malformed YAML (like missing newlines between major sections)
+  const majorSections = ["version:", "services:", "networks:", "volumes:", "name:"]
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim()
+
+    // Check if multiple major sections appear on the same line
+    let sectionCount = 0
+    const foundSections: string[] = []
+
+    majorSections.forEach((section) => {
+      if (trimmed.includes(section)) {
+        sectionCount++
+        foundSections.push(section.replace(":", ""))
+      }
+    })
+
+    if (sectionCount > 1) {
+      issues.push({
+        type: "error",
+        message: `Multiple YAML sections found on the same line: ${foundSections.join(", ")}. Each section must be on its own line.`,
+        line: index + 1,
+        code: "yaml-multiple-sections-same-line",
+      })
+    }
   })
 }
 
 function validateDockerComposeStructure(yaml: string, lines: string[], issues: ValidationIssue[]) {
-  // Remove the version check entirely since it's optional in Compose v2
+  // Check for version field and provide info about it being obsolete
+  if (yaml.includes("version:")) {
+    const versionLineIndex = lines.findIndex((line) => line.trim().startsWith("version:"))
+    if (versionLineIndex !== -1) {
+      issues.push({
+        type: "info",
+        message:
+          "The 'version' field is now obsolete and optional in Docker Compose v2. You can safely remove it from modern compose files.",
+        line: versionLineIndex + 1,
+        code: "compose-version-obsolete",
+      })
+    }
+  }
 
   // Check for services section
   if (!yaml.includes("services:")) {

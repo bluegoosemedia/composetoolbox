@@ -11,7 +11,7 @@ interface CustomTemplate {
 
 export async function GET() {
   try {
-    const customTemplatesPath = join(process.cwd(), "app", "data", "custom-templates", "custom-templates.yml")
+    const customTemplatesPath = join(process.cwd(), "data", "custom-templates", "custom-templates.yml")
     
     // Check if custom templates file exists
     if (!existsSync(customTemplatesPath)) {

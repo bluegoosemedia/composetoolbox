@@ -4,8 +4,8 @@ import { join } from 'path'
 
 export async function GET() {
   try {
-    // Path to the template file
-    const templatePath = join(process.cwd(), 'app', 'data', 'startup', 'startup-template.yml')
+    // Path to the template file (in Docker container, this should be /app/data/)
+    const templatePath = join(process.cwd(), 'data', 'startup', 'startup-template.yml')
     
     // Read the template file
     const templateContent = readFileSync(templatePath, 'utf8')

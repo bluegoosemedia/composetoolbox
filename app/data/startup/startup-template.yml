@@ -1,0 +1,11 @@
+services:
+  composetoolbox:
+    image: ghcr.io/bluegoosemedia/composetoolbox
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    volumes: 
+      # Volume for template file that loads on startup. Just overwrite the startup-template.yml with your own.
+      - ./data:/data/templates

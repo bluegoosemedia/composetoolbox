@@ -52,7 +52,7 @@ export const parseComposeOverview = (yaml: string): ComposeOverview => {
     for (let i = servicesStartIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:$/)) {
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:\s*$/)) {
         servicesCount++
       }
     }
@@ -63,8 +63,8 @@ export const parseComposeOverview = (yaml: string): ComposeOverview => {
     for (let i = networksStartIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
-      // Look for network definitions (2 spaces + name + optional colon)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?$/)) {
+      // Look for network definitions (2 spaces + name + optional colon, allowing trailing whitespace)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?\s*$/)) {
         networksCount++
       }
     }
@@ -75,8 +75,8 @@ export const parseComposeOverview = (yaml: string): ComposeOverview => {
     for (let i = volumesStartIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
-      // Look for volume definitions (2 spaces + name + optional colon)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?$/)) {
+      // Look for volume definitions (2 spaces + name + optional colon, allowing trailing whitespace)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?\s*$/)) {
         volumesCount++
       }
     }
@@ -109,8 +109,8 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
       const line = lines[i]
       // Stop if we hit another top-level section or end of file
       if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
-      // Find service names (exactly 2 spaces + name + colon)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:$/)) {
+      // Find service names (exactly 2 spaces + name + colon, allowing trailing whitespace)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:\s*$/)) {
         const serviceName = line.trim().replace(":", "")
 
         // Find this service's configuration
@@ -285,7 +285,7 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
                 .trim()
                 .substring(2)
                 .replace(/['"]/g, "")
-                .replace(/#optional.*$/, "")
+                .replace(/#.*$/, "") // Remove any inline comments
                 .trim()
               const [hostPath, containerPath] = volume.split(":")
               if (hostPath && containerPath) {
@@ -449,8 +449,8 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
     for (let i = networksStartIndex + 1; i < networksEndIndex; i++) {
       const line = lines[i]
 
-      // Look for network definitions (2 spaces + name + optional colon)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?$/)) {
+      // Look for network definitions (2 spaces + name + optional colon, allowing trailing whitespace)
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:?\s*$/)) {
         const networkName = line.trim().replace(":", "")
         let isExternal = false
         let driver: string | undefined = undefined
@@ -487,9 +487,9 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
     for (let i = volumesStartIndex + 1; i < volumesEndIndex; i++) {
       const line = lines[i]
 
-      // Look for volume definitions (2 spaces + name + optional colon)
+      // Look for volume definitions (2 spaces + name + optional colon, allowing trailing whitespace)
       // Allow dots in volume names (like caddy.etc, caddy.var)
-      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?$/)) {
+      if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?\s*$/)) {
         const volumeName = line.trim().replace(":", "")
         volumes.push(volumeName)
       }

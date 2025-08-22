@@ -332,7 +332,7 @@ function validateDockerComposeStructure(yaml: string, lines: string[], issues: V
     const line = lines[i]
     if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break // End of services section
 
-    if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:$/)) {
+    if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:\s*$/)) {
       const serviceName = line.trim().replace(":", "")
       serviceNames.push(serviceName)
 

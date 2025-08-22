@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Separator } from "@/components/ui/separator"
 import { Header } from "@/components/docker-compose/Header"
 import { Footer } from "@/components/docker-compose/Footer"
@@ -8,25 +8,48 @@ import { EditorSection } from "@/components/docker-compose/EditorPanel"
 import { ConfigurationPanel } from "@/components/docker-compose/ConfigurationPanel"
 import { HelpDialog } from "@/components/docker-compose/HelpDialog"
 import { KeyboardShortcutsDialog } from "@/components/docker-compose/KeyboardShortcutsDialog"
+import { Loader2 } from "lucide-react"
 
-const defaultCompose = `version: '3.9'
+export default function DockerComposePage() {
+  const [compose, setCompose] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [view, setView] = useState<"split" | "editor" | "configuration">("split")
+  const [syntaxHighlighting, setSyntaxHighlighting] = useState(true)
+  const [showHelp, setShowHelp] = useState(false)
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
+  const editorRef = useRef<{ goToLine: (line: number) => void }>(null)
 
-services:
+  // Load template on component mount
+  useEffect(() => {
+    const loadTemplate = async () => {
+      try {
+        const response = await fetch('/api/startup')
+        const data = await response.json()
+        
+        if (data.success) {
+          setCompose(data.content)
+        } else {
+          console.warn('Startup template loading failed:', data.error)
+          setCompose(data.content) // Use fallback content
+        }
+      } catch (error) {
+        console.error('Failed to fetch startup template:', error)
+        // Final fallback if API call fails
+        setCompose(`services:
   composetoolbox:
     image: ghcr.io/bluegoosemedia/composetoolbox
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-    restart: unless-stopped`
+    restart: unless-stopped`)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-export default function DockerComposePage() {
-  const [compose, setCompose] = useState(defaultCompose)
-  const [view, setView] = useState<"split" | "editor" | "configuration">("split")
-  const [syntaxHighlighting, setSyntaxHighlighting] = useState(true)
-  const [showHelp, setShowHelp] = useState(false)
-  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
-  const editorRef = useRef<{ goToLine: (line: number) => void }>(null)
+    loadTemplate()
+  }, [])
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(compose)
@@ -76,19 +99,29 @@ export default function DockerComposePage() {
 
       {/* Main Content - Responsive Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        <EditorSection
-          ref={editorRef}
-          compose={compose}
-          onChange={setCompose}
-          syntaxHighlighting={syntaxHighlighting}
-          view={view}
-        />
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-muted-foreground">
+              <Loader2 className="animate-spin" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <EditorSection
+              ref={editorRef}
+              compose={compose}
+              onChange={setCompose}
+              syntaxHighlighting={syntaxHighlighting}
+              view={view}
+            />
 
-        {/* Separator - only show on desktop split view */}
-        {view === "split" && <Separator orientation="vertical" className="h-full hidden lg:block" />}
+            {/* Separator - only show on desktop split view */}
+            {view === "split" && <Separator orientation="vertical" className="h-full hidden lg:block" />}
 
-        {(view === "configuration" || view === "split") && (
-          <ConfigurationPanel compose={compose} view={view} onGoToLine={handleGoToLine} />
+            {(view === "configuration" || view === "split") && (
+              <ConfigurationPanel compose={compose} view={view} onGoToLine={handleGoToLine} />
+            )}
+          </>
         )}
       </div>
 

@@ -133,7 +133,6 @@ export const EditorSection = React.forwardRef<{ goToLine: (line: number) => void
               value={compose}
               onChange={onChange}
               className="w-full h-full"
-              placeholder="Enter your Docker Compose configuration here..."
               syntaxHighlighting={syntaxHighlighting}
             />
           </div>

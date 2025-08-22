@@ -7,4 +7,4 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
     volumes:
-      - ./yourserver/composetoolbox/data:/app/data 
+      - ./composetoolbox/data:/app/data 

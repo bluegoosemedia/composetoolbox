@@ -287,10 +287,23 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
                 .replace(/['"]/g, "")
                 .replace(/#.*$/, "") // Remove any inline comments
                 .trim()
-              const [hostPath, containerPath] = volume.split(":")
-              if (hostPath && containerPath) {
-                service.volumes.push({ host: hostPath, container: containerPath })
+              
+              // Skip empty or invalid entries
+              if (!volume || volume.startsWith(",")) {
+                continue
               }
+              
+              const [hostPath, containerPath] = volume.split(":")
+              // Only add if we have valid host and container paths
+              if (hostPath && containerPath && hostPath.trim() && containerPath.trim()) {
+                service.volumes.push({ host: hostPath.trim(), container: containerPath.trim() })
+              }
+              // Handle named volumes (single path without colon, but not absolute paths)
+              else if (!volume.includes(":") && hostPath && !volume.startsWith("/") && !volume.startsWith("./") && !volume.startsWith("../")) {
+                // Only treat as named volume if it doesn't look like a file path
+                service.volumes.push({ host: hostPath.trim(), container: hostPath.trim() })
+              }
+              // Skip incomplete/invalid volume entries (they'll be caught by validator)
             }
           }
         }

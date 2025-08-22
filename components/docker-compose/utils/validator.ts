@@ -36,6 +36,7 @@ export const validateDockerCompose = (yaml: string): ValidationResult => {
   // Docker Compose specific validation
   validateDockerComposeStructure(yaml, lines, issues)
   validateBestPractices(yaml, lines, issues)
+  validateVolumeUsage(yaml, lines, issues)
 
   // Sort issues by priority (errors → warnings → info) then by line number
   const sortedIssues = issues.sort((a, b) => {
@@ -81,7 +82,7 @@ function validateYamlSyntax(yaml: string, lines: string[], issues: ValidationIss
     }
 
     // Check for inconsistent indentation
-    if (line.length > 0 && !trimmed.startsWith("#")) {
+    if (trimmed.length > 0 && !trimmed.startsWith("#")) {
       const leadingSpaces = line.length - line.trimStart().length
       if (leadingSpaces % 2 !== 0 && leadingSpaces > 0) {
         issues.push({
@@ -422,8 +423,10 @@ function validateService(serviceName: string, startLine: number, lines: string[]
     })
   }
 
-  // Check for volume mappings
-  if (!serviceConfig.includes("volumes:")) {
+  // Check for volume mappings and validate them
+  if (serviceConfig.includes("volumes:")) {
+    validateVolumeMappings(serviceName, serviceConfig, startLine, endLine, lines, issues)
+  } else {
     issues.push({
       type: "info",
       message: `Service "${serviceName}" has no volume mappings. Did you forget to add persistent storage?`,
@@ -548,6 +551,164 @@ function validatePortMappings(
   })
 }
 
+function validateVolumeMappings(
+  serviceName: string,
+  serviceConfig: string,
+  startLine: number,
+  endLine: number,
+  lines: string[],
+  issues: ValidationIssue[],
+) {
+  // Find the volumes section line within this service
+  let volumesLineIndex = -1
+  for (let i = startLine - 1; i < endLine; i++) {
+    if (lines[i] && lines[i].trim() === "volumes:") {
+      volumesLineIndex = i
+      break
+    }
+  }
+
+  if (volumesLineIndex === -1) return
+
+  // Parse volume entries line by line
+  for (let i = volumesLineIndex + 1; i < endLine; i++) {
+    const line = lines[i]
+    if (!line) continue
+    
+    const trimmed = line.trim()
+    
+    // Stop if we hit another service property
+    if (trimmed.match(/^[a-zA-Z_][a-zA-Z0-9_-]*:/) && !trimmed.startsWith("-")) {
+      break
+    }
+
+    // Skip comment lines and empty lines
+    if (trimmed.startsWith("#") || trimmed === "") continue
+
+    // Check for volume definition syntax inside service (which is incorrect)
+    if (line.match(/^\s{4,}[a-zA-Z][a-zA-Z0-9_-]*:\s*$/) && !line.includes("-")) {
+      issues.push({
+        type: "error",
+        message: `Service "${serviceName}" has invalid volumes syntax: volume definitions should be at top level, not inside service volumes`,
+        line: i + 1,
+        code: "service-volume-definition-in-service",
+      })
+      continue
+    }
+
+    // Check for volume entry lines (dash followed by content)
+    if (line.match(/^\s{2,6}-\s+/)) {
+      const volumeEntry = line.trim().substring(2).trim()
+      
+      // Check for completely invalid syntax
+      if (volumeEntry.startsWith(",") || volumeEntry.includes(",,")) {
+        issues.push({
+          type: "error",
+          message: `Service "${serviceName}" has invalid volume syntax: "${volumeEntry}"`,
+          line: i + 1,
+          code: "service-invalid-volume-syntax",
+        })
+        continue
+      }
+
+      // Check for incomplete volume mappings
+      if (volumeEntry.endsWith(":") && !volumeEntry.includes("::")) {
+        issues.push({
+          type: "error",
+          message: `Service "${serviceName}" has incomplete volume mapping: "${volumeEntry}"`,
+          line: i + 1,
+          code: "service-incomplete-volume-mapping",
+        })
+        continue
+      }
+
+      // Check for mappings that start with colon (missing source)
+      if (volumeEntry.startsWith(":")) {
+        issues.push({
+          type: "error",
+          message: `Service "${serviceName}" has incomplete volume mapping: "${volumeEntry}"`,
+          line: i + 1,
+          code: "service-incomplete-volume-mapping",
+        })
+        continue
+      }
+
+      // Check for valid volume mapping format
+      const parts = volumeEntry.split(":")
+      if (parts.length > 3) {
+        issues.push({
+          type: "error",
+          message: `Service "${serviceName}" has invalid volume mapping format: "${volumeEntry}"`,
+          line: i + 1,
+          code: "service-invalid-volume-format",
+        })
+        continue
+      }
+
+      // For bind mounts (host:container format), validate paths
+      if (parts.length === 2) {
+        const [hostPath, containerPath] = parts
+        
+        if (!hostPath.trim() || !containerPath.trim()) {
+          issues.push({
+            type: "error",
+            message: `Service "${serviceName}" has empty path in volume mapping: "${volumeEntry}"`,
+            line: i + 1,
+            code: "service-empty-volume-path",
+          })
+          continue
+        }
+
+        // Check for absolute container paths (should start with /)
+        if (!containerPath.trim().startsWith("/")) {
+          issues.push({
+            type: "warning",
+            message: `Service "${serviceName}" volume mapping "${volumeEntry}" should use absolute container path`,
+            line: i + 1,
+            code: "service-relative-container-path",
+          })
+        }
+      }
+
+      // Check for named volumes vs bind mounts
+      if (parts.length === 1) {
+        // Single path without colon - could be named volume or incomplete bind mount
+        if (volumeEntry.startsWith("/")) {
+          // Absolute path without host part - likely incomplete bind mount
+          issues.push({
+            type: "error", 
+            message: `Service "${serviceName}" has incomplete volume mapping: "${volumeEntry}"`,
+            line: i + 1,
+            code: "service-incomplete-bind-mount",
+          })
+          continue
+        } else if (!volumeEntry.startsWith("./") && !volumeEntry.startsWith("../")) {
+          // This might be a named volume, which is fine
+          continue
+        } else {
+          // Relative path without colon - likely incomplete
+          issues.push({
+            type: "error",
+            message: `Service "${serviceName}" has incomplete volume mapping: "${volumeEntry}"`,
+            line: i + 1,
+            code: "service-incomplete-bind-mount",
+          })
+          continue
+        }
+      }
+    }
+    // If we get here and the line isn't a comment, dash item, or next property, it might be invalid syntax
+    else if (trimmed && !trimmed.startsWith("#")) {
+      issues.push({
+        type: "error",
+        message: `Service "${serviceName}" has invalid volumes syntax: expected list format with dashes`,
+        line: i + 1,
+        code: "service-invalid-volumes-format",
+      })
+    }
+  }
+}
+
 function validateBestPractices(yaml: string, lines: string[], issues: ValidationIssue[]) {
   // Check for networks section
   if (!yaml.includes("networks:")) {
@@ -605,4 +766,148 @@ function validateBestPractices(yaml: string, lines: string[], issues: Validation
       code: "compose-missing-healthcheck",
     })
   }
+}
+
+function validateVolumeUsage(yaml: string, lines: string[], issues: ValidationIssue[]) {
+  // Extract named volumes defined in the top-level volumes section
+  const definedVolumes = new Set<string>()
+  const usedVolumes = new Set<string>()
+  
+  // Find top-level volumes section (not inside services)
+  const topLevelVolumesSectionIndex = lines.findIndex((line, index) => {
+    // Must be at the start of a line (no indentation) and be "volumes:"
+    return line.trim().startsWith('volumes:') && !line.startsWith('  ') && !line.startsWith('\t')
+  })
+  
+  if (topLevelVolumesSectionIndex !== -1) {
+    // Parse volume definitions from the top-level volumes section
+    for (let i = topLevelVolumesSectionIndex + 1; i < lines.length; i++) {
+      const line = lines[i]
+      // Stop if we hit another top-level section or end of file
+      if (line.trim() && !line.startsWith('  ') && !line.startsWith('\t')) {
+        break
+      }
+      
+      // Look for volume names (indented by 2 spaces, ending with colon)
+      const volumeMatch = line.match(/^  ([a-zA-Z0-9_-]+):\s*$/)
+      if (volumeMatch) {
+        const volumeName = volumeMatch[1]
+        definedVolumes.add(volumeName)
+      }
+    }
+  }
+  
+  // Find all volume usage in services
+  const servicesSectionMatch = yaml.match(/^services:\s*$/m)
+  if (servicesSectionMatch) {
+    const servicesSectionIndex = lines.findIndex(line => line.trim() === 'services:')
+    if (servicesSectionIndex !== -1) {
+      // Parse services to find volume usage and empty volume sections
+      for (let i = servicesSectionIndex + 1; i < lines.length; i++) {
+        const line = lines[i]
+        // Stop if we hit another top-level section
+        if (line.trim() && !line.startsWith('  ') && !line.startsWith('\t')) {
+          break
+        }
+        
+        // Look for volumes section within a service
+        if (line.trim() === 'volumes:' && (line.startsWith('    ') || line.startsWith('\t\t'))) {
+          // Check if this volumes section is empty
+          let hasVolumeEntries = false
+          
+          // Parse volume mappings in this service
+          for (let j = i + 1; j < lines.length; j++) {
+            const volumeLine = lines[j]
+            // Stop if we're no longer in the volumes section
+            if (volumeLine.trim() && !(volumeLine.startsWith('      ') || volumeLine.startsWith('\t\t\t') || volumeLine.startsWith('    - '))) {
+              break
+            }
+            
+            // Check for volume entries (should start with - )
+            const volumeEntryMatch = volumeLine.match(/^\s*-\s*(.+)$/)
+            if (volumeEntryMatch) {
+              hasVolumeEntries = true
+              const volumeEntry = volumeEntryMatch[1].trim()
+              
+              // Check if it's a named volume (no path separators, no ./
+              // Named volumes don't contain : with paths, just volume_name:container_path
+              const parts = volumeEntry.split(':')
+              if (parts.length >= 2) {
+                const volumeSource = parts[0].trim()
+                // If it doesn't start with ./ or / or contain windows path markers, it might be a named volume
+                if (!volumeSource.startsWith('./') && 
+                    !volumeSource.startsWith('/') && 
+                    !volumeSource.includes('\\') &&
+                    !volumeSource.match(/^[A-Za-z]:/)) {
+                  usedVolumes.add(volumeSource)
+                }
+              }
+            }
+          }
+          
+          // Warn about empty volumes sections
+          if (!hasVolumeEntries) {
+            issues.push({
+              type: "warning",
+              message: "Service has an empty volumes section. Consider removing it or adding volume mappings",
+              line: i + 1,
+              code: "compose-empty-volumes-section",
+            })
+          }
+        }
+      }
+    }
+  }
+  
+  // Also check for volume usage in short-form syntax (outside of dedicated volumes sections)
+  // This catches cases like: volumes: ["./data:/data", "my-volume:/app/data"]
+  const volumeShortFormMatches = yaml.matchAll(/volumes:\s*\[([^\]]+)\]/g)
+  for (const match of volumeShortFormMatches) {
+    const volumeList = match[1]
+    const volumeEntries = volumeList.split(',')
+    for (const entry of volumeEntries) {
+      const cleanEntry = entry.replace(/['"]/g, '').trim()
+      const parts = cleanEntry.split(':')
+      if (parts.length >= 2) {
+        const volumeSource = parts[0].trim()
+        if (!volumeSource.startsWith('./') && 
+            !volumeSource.startsWith('/') && 
+            !volumeSource.includes('\\') &&
+            !volumeSource.match(/^[A-Za-z]:/)) {
+          usedVolumes.add(volumeSource)
+        }
+      }
+    }
+  }
+  
+  // Check for unused defined volumes
+  definedVolumes.forEach(volumeName => {
+    if (!usedVolumes.has(volumeName)) {
+      const volumeLineIndex = lines.findIndex(line => 
+        line.trim() === `${volumeName}:` && (line.startsWith('  ') || line.startsWith('\t'))
+      )
+      issues.push({
+        type: "warning",
+        message: `Named volume "${volumeName}" is defined but not used by any service`,
+        line: volumeLineIndex !== -1 ? volumeLineIndex + 1 : 1,
+        code: "compose-unused-volume",
+      })
+    }
+  })
+  
+  // Check for used but undefined volumes
+  usedVolumes.forEach(volumeName => {
+    if (!definedVolumes.has(volumeName)) {
+      // Find the line where this volume is used
+      const volumeUsageLineIndex = lines.findIndex(line => 
+        line.includes(`- ${volumeName}:`) || line.includes(`-${volumeName}:`)
+      )
+      issues.push({
+        type: "error",
+        message: `Named volume "${volumeName}" is used but not defined in the volumes section`,
+        line: volumeUsageLineIndex !== -1 ? volumeUsageLineIndex + 1 : 1,
+        code: "compose-undefined-volume",
+      })
+    }
+  })
 }

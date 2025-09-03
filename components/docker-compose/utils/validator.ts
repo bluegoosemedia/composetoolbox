@@ -313,56 +313,84 @@ function validateDockerComposeStructure(yaml: string, lines: string[], issues: V
   }
 
   // Check for improperly nested major sections
-  const majorSections = ["services:", "networks:", "volumes:"]
+  const majorSections = ["services:", "networks:", "volumes:"];
   majorSections.forEach((section) => {
     lines.forEach((line, index) => {
-      const trimmed = line.trim()
+      const trimmed = line.trim();
       // If we find a major section that is indented (not at top level)
       if (trimmed === section && (line.startsWith('  ') || line.startsWith('\t'))) {
-        // Special case: volumes: inside a service is valid, only flag top-level volume definitions
-        if (section === "volumes:") {
-          // Check if this volumes: section contains volume definitions (with driver, etc.)
-          // vs just volume mappings (list items starting with -)
-          let hasVolumeDefinitions = false
+        if (section === "networks:") {
+          // Look ahead to see if this is a definition or just a list
+          let isNetworkDefinition = false;
+          let foundListItem = false;
           for (let i = index + 1; i < lines.length; i++) {
-            const nextLine = lines[i]
-            if (nextLine.trim() === '' || nextLine.startsWith('    ') || nextLine.startsWith('\t\t')) {
-              // Check if this looks like a volume definition (has driver, external, etc.)
-              if (nextLine.includes('driver:') || nextLine.includes('external:') || 
-                  nextLine.includes('driver_opts:') || nextLine.includes('labels:')) {
-                hasVolumeDefinitions = true
-                break
-              }
-              // If we see volume mappings (starting with -), this is a service volumes section
-              if (nextLine.trim().startsWith('-')) {
-                break
-              }
-            } else {
-              break
+            const nextLine = lines[i];
+            const nextTrimmed = nextLine.trim();
+            // Stop if we hit a blank line or another top-level section
+            if (!nextTrimmed || /^[a-zA-Z_][a-zA-Z0-9_-]*:/.test(nextTrimmed)) break;
+            // If we see a dash, it's a list (valid for service assignment)
+            if (nextTrimmed.startsWith('-')) {
+              foundListItem = true;
+              break;
+            }
+            // If we see config keys, it's a definition (should be top-level)
+            if (
+              nextTrimmed.startsWith('driver:') ||
+              nextTrimmed.startsWith('external:') ||
+              nextTrimmed.startsWith('ipam:') ||
+              nextTrimmed.startsWith('labels:')
+            ) {
+              isNetworkDefinition = true;
+              break;
             }
           }
-          
-          // Only flag if this appears to be volume definitions, not volume mappings
+          // Only flag if it's a definition, not a list
+          if (isNetworkDefinition) {
+            issues.push({
+              type: "error",
+              message: `"${section}" section with network definitions must be at the top level, not nested inside another section`,
+              line: index + 1,
+              code: "compose-nested-major-section",
+            });
+          }
+          // Do NOT flag if it's just a list
+        } else if (section === "services:") {
+          issues.push({
+            type: "error",
+            message: `"${section}" section must be at the top level, not nested inside another section`,
+            line: index + 1,
+            code: "compose-nested-major-section",
+          });
+        } else if (section === "volumes:") {
+          // Check if this volumes: section contains volume definitions (with driver, etc.)
+          let hasVolumeDefinitions = false;
+          for (let i = index + 1; i < lines.length; i++) {
+            const nextLine = lines[i];
+            if (nextLine.trim() === '' || nextLine.startsWith('    ') || nextLine.startsWith('\t\t')) {
+              if (nextLine.includes('driver:') || nextLine.includes('external:') || 
+                  nextLine.includes('driver_opts:') || nextLine.includes('labels:')) {
+                hasVolumeDefinitions = true;
+                break;
+              }
+              if (nextLine.trim().startsWith('-')) {
+                break;
+              }
+            } else {
+              break;
+            }
+          }
           if (hasVolumeDefinitions) {
             issues.push({
               type: "error",
               message: `"${section}" section with volume definitions must be at the top level, not nested inside another section`,
               line: index + 1,
               code: "compose-nested-major-section",
-            })
+            });
           }
-        } else {
-          // For services: and networks:, they should never be nested
-          issues.push({
-            type: "error",
-            message: `"${section}" section must be at the top level, not nested inside another section`,
-            line: index + 1,
-            code: "compose-nested-major-section",
-          })
         }
       }
-    })
-  })
+    });
+  });
 
   // Check for services section
   if (!yaml.includes("services:")) {

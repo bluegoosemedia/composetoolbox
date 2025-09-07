@@ -75,7 +75,7 @@ export async function GET() {
           codeLines.push('')
         } else if (trimmed.startsWith('- name:') || (!trimmed.startsWith(' ') && trimmed !== '')) {
           // End of code block
-          currentTemplate.code = codeLines.join('\n').trim()
+          currentTemplate.code = codeLines.join('\n')
           inCodeBlock = false
           i-- // Re-process this line
         }
@@ -84,7 +84,7 @@ export async function GET() {
     
     // Handle final code block if we're still in one at the end of file
     if (inCodeBlock && currentTemplate && codeLines.length > 0) {
-      currentTemplate.code = codeLines.join('\n').trim()
+      currentTemplate.code = codeLines.join('\n')
     }
     
     // Save the last template

@@ -53,11 +53,11 @@ export async function GET() {
         codeLines = []
       }
       // Icon field
-      else if (trimmed.startsWith('icon:') && currentTemplate) {
+      else if (!inCodeBlock && trimmed.startsWith('icon:') && currentTemplate) {
         currentTemplate.icon = trimmed.replace('icon:', '').replace(/['"]/g, '').trim()
       }
       // Description field
-      else if (trimmed.startsWith('description:') && currentTemplate) {
+      else if (!inCodeBlock && trimmed.startsWith('description:') && currentTemplate) {
         currentTemplate.description = trimmed.replace('description:', '').replace(/['"]/g, '').trim()
       }
       // Code field

@@ -488,22 +488,22 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
 
         {/* Prerequisites Warning */}
         {parsedData.networks.some((n) => n.external) && (
-          <Card className="border-yellow-500/20 bg-yellow-500/5">
+          <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base lg:text-lg flex items-center gap-2 text-yellow-400">
+              <CardTitle className="text-base lg:text-lg flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
                 <AlertTriangle className="w-4 lg:w-5 h-4 lg:h-5" />
                 Prerequisites
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-yellow-300">This compose file uses external networks. Create them first:</p>
+              <p className="text-sm text-yellow-800 dark:text-yellow-300">This compose file uses external networks. Create them first:</p>
               <div className="space-y-2">
                 {parsedData.networks
                   .filter((n) => n.external)
                   .map((network) => (
                     <code
                       key={network.name}
-                      className="block bg-yellow-500/10 text-yellow-400 p-2 rounded text-xs font-mono break-all"
+                      className="block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 p-2 rounded text-xs font-mono break-all"
                     >
                       docker network create {network.name}
                     </code>

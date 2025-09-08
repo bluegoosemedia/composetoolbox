@@ -53,11 +53,11 @@ export async function GET() {
         codeLines = []
       }
       // Icon field
-      else if (trimmed.startsWith('icon:') && currentTemplate) {
+      else if (!inCodeBlock && trimmed.startsWith('icon:') && currentTemplate) {
         currentTemplate.icon = trimmed.replace('icon:', '').replace(/['"]/g, '').trim()
       }
       // Description field
-      else if (trimmed.startsWith('description:') && currentTemplate) {
+      else if (!inCodeBlock && trimmed.startsWith('description:') && currentTemplate) {
         currentTemplate.description = trimmed.replace('description:', '').replace(/['"]/g, '').trim()
       }
       // Code field
@@ -75,7 +75,7 @@ export async function GET() {
           codeLines.push('')
         } else if (trimmed.startsWith('- name:') || (!trimmed.startsWith(' ') && trimmed !== '')) {
           // End of code block
-          currentTemplate.code = codeLines.join('\n').trim()
+          currentTemplate.code = codeLines.join('\n')
           inCodeBlock = false
           i-- // Re-process this line
         }
@@ -84,7 +84,7 @@ export async function GET() {
     
     // Handle final code block if we're still in one at the end of file
     if (inCodeBlock && currentTemplate && codeLines.length > 0) {
-      currentTemplate.code = codeLines.join('\n').trim()
+      currentTemplate.code = codeLines.join('\n')
     }
     
     // Save the last template

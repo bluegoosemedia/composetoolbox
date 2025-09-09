@@ -23,14 +23,6 @@ jobs:
       id-token: write
 
     steps:
-      - name: Cleanup untagged images
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: "composetoolbox"
-          package-type: "container"
-          delete-only-untagged-versions: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout
         uses: actions/checkout@v4
         with:

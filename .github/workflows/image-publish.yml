@@ -12,16 +12,16 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     if: github.repository == 'bluegoosemedia/composetoolbox'
-    permissions:
-      contents: read
-      packages: write
-      attestations: write
-      id-token: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ['latin'], display: 'swap', adjustFontFallback: false})
 
 export const metadata: Metadata = {
   title: "Compose Toolbox",

@@ -8,8 +8,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --legacy-peer-deps
 
-# Copy source code
+
+# Copy source code and public assets
 COPY . .
+COPY public ./public
 
 # Build the application
 RUN npm run build

@@ -7,11 +7,11 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = localFont({
   src: [
     {
-      path: "/fonts/Inter-VariableFont.ttf",
+      path: "../public/fonts/Inter-VariableFont.ttf",
       style: "normal",
     },
     {
-      path: "/fonts/Inter-Italic-VariableFont.ttf",
+      path: "../public/fonts/Inter-Italic-VariableFont.ttf",
       style: "italic",
     },
   ],

@@ -54,7 +54,7 @@ jobs:
             type=semver,pattern=v{{major}}.{{minor}}
             type=semver,pattern=v{{major}}
           flavor: |
-            latest=auto
+            latest=true
 
       - name: Build and push Docker image
         id: build-and-push

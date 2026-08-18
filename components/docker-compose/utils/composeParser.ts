@@ -7,7 +7,7 @@ export interface ComposeOverview {
 export interface ServiceConfig {
   name: string
   image?: string
-  ports: { host: string; container: string }[]
+  ports: { type: "published" | "exposed"; container: string; host?: string }[]
   environment: { key: string; value?: string }[]
   volumes: { host: string; container: string }[]
   networks: { name: string; ip?: string }[]
@@ -24,10 +24,18 @@ export interface NetworkConfig {
   driver?: string
 }
 
+export interface VolumeConfig {
+  type: "named" | "mount"
+  name: string
+  serviceName?: string
+  host?: string
+  container?: string
+}
+
 export interface ParsedComposeData {
   services: ServiceConfig[]
   networks: NetworkConfig[]
-  volumes: string[]
+  volumes: VolumeConfig[]
 }
 
 export const parseComposeOverview = (yaml: string): ComposeOverview => {
@@ -41,10 +49,12 @@ export const parseComposeOverview = (yaml: string): ComposeOverview => {
   let volumesStartIndex = -1
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (line === "services:") servicesStartIndex = i
-    if (line === "networks:") networksStartIndex = i
-    if (line === "volumes:") volumesStartIndex = i
+    const trimmedLine = lines[i].trim()
+    const isTopLevel = lines[i] === trimmedLine
+
+    if (isTopLevel && trimmedLine === "services:") servicesStartIndex = i
+    if (isTopLevel && trimmedLine === "networks:") networksStartIndex = i
+    if (isTopLevel && trimmedLine === "volumes:") volumesStartIndex = i
   }
 
   // Count services
@@ -82,6 +92,33 @@ export const parseComposeOverview = (yaml: string): ComposeOverview => {
     }
   }
 
+  // Count service volume mappings as part of the overall storage count
+  if (servicesStartIndex !== -1) {
+    for (let i = servicesStartIndex + 1; i < lines.length; i++) {
+      const line = lines[i]
+      if (line.match(/^[a-zA-Z]/) && !line.startsWith("  ")) break
+
+      if (line.trim() === "volumes:" && line.startsWith("    ")) {
+        for (let j = i + 1; j < lines.length; j++) {
+          const volumeLine = lines[j]
+          const trimmedVolumeLine = volumeLine.trim()
+
+          if (!trimmedVolumeLine) {
+            continue
+          }
+
+          if (!volumeLine.startsWith("      ") && !volumeLine.startsWith("    - ")) {
+            break
+          }
+
+          if (volumeLine.match(/^\s*-\s+/)) {
+            volumesCount++
+          }
+        }
+      }
+    }
+  }
+
   return { servicesCount, networksCount, volumesCount }
 }
 
@@ -89,7 +126,7 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
   const lines = yaml.split("\n")
   const services: ServiceConfig[] = []
   const networks: NetworkConfig[] = []
-  const volumes: string[] = []
+  const volumes: VolumeConfig[] = []
 
   const getIndentLevel = (line: string) => line.length - line.trimStart().length
 
@@ -99,10 +136,12 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
   let volumesStartIndex = -1
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (line === "services:") servicesStartIndex = i
-    if (line === "networks:") networksStartIndex = i
-    if (line === "volumes:") volumesStartIndex = i
+    const trimmedLine = lines[i].trim()
+    const isTopLevel = lines[i] === trimmedLine
+
+    if (isTopLevel && trimmedLine === "services:") servicesStartIndex = i
+    if (isTopLevel && trimmedLine === "networks:") networksStartIndex = i
+    if (isTopLevel && trimmedLine === "volumes:") volumesStartIndex = i
   }
 
   // Parse services using the working logic from before
@@ -224,9 +263,42 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
             // Check for port lines (dash followed by content)
             if (portLine.match(/^\s{2,6}-\s+/)) {
               const port = portLine.trim().substring(2).replace(/['"]/g, "") // Remove "- " prefix and quotes
-              const [hostPort, containerPort] = port.split(":")
-              if (hostPort && containerPort) {
-                service.ports.push({ host: hostPort, container: containerPort })
+              const lastColonIndex = port.lastIndexOf(":")
+
+              if (lastColonIndex !== -1) {
+                const hostPort = port.substring(0, lastColonIndex).trim()
+                const containerPort = port.substring(lastColonIndex + 1).trim()
+
+                if (hostPort && containerPort) {
+                  service.ports.push({ type: "published", host: hostPort, container: containerPort })
+                }
+              }
+            }
+          }
+        }
+
+        let exposeStartIndex = -1
+        for (let k = 0; k < serviceLines.length; k++) {
+          if (serviceLines[k].trim().startsWith("expose:")) {
+            exposeStartIndex = k
+            break
+          }
+        }
+
+        if (exposeStartIndex !== -1) {
+          for (let k = exposeStartIndex + 1; k < serviceLines.length; k++) {
+            const exposeLine = serviceLines[k]
+            const trimmedLine = exposeLine.trim()
+
+            if (trimmedLine.match(/^[a-zA-Z_][a-zA-Z0-9_-]*:/) && !trimmedLine.startsWith("-")) {
+              break
+            }
+
+            if (exposeLine.match(/^\s{2,6}-\s+/)) {
+              const exposedPort = exposeLine.trim().substring(2).replace(/['"]/g, "").trim()
+
+              if (exposedPort) {
+                service.ports.push({ type: "exposed", container: exposedPort })
               }
             }
           }
@@ -309,6 +381,16 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
             }
           }
         }
+
+        service.volumes.forEach((volume) => {
+          volumes.push({
+            type: "mount",
+            name: `${volume.host}:${volume.container}`,
+            serviceName: service.name,
+            host: volume.host,
+            container: volume.container,
+          })
+        })
 
         // Parse service network assignments
         let netStartIndex = -1
@@ -546,7 +628,7 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
       // Allow dots in volume names (like caddy.etc, caddy.var)
       if (line.match(/^ {2}[a-zA-Z][a-zA-Z0-9_.-]*:?\s*$/)) {
         const volumeName = line.trim().replace(":", "")
-        volumes.push(volumeName)
+        volumes.push({ type: "named", name: volumeName })
       }
     }
   }

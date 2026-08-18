@@ -34,8 +34,23 @@ interface ConfigurationPanelProps {
 }
 
 export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationPanelProps) {
-  const { servicesCount, networksCount, volumesCount } = parseComposeOverview(compose)
+  const { servicesCount, networksCount } = parseComposeOverview(compose)
   const parsedData = parseDockerComposeStructured(compose)
+  const volumesCount = parsedData.volumes.length
+  const namedVolumes = parsedData.volumes.filter((volume) => volume.type === "named")
+  const mountGroups = parsedData.volumes
+    .filter((volume) => volume.type === "mount" && volume.serviceName)
+    .reduce<Record<string, typeof parsedData.volumes>>((groups, volume) => {
+      const serviceName = volume.serviceName!
+
+      if (!groups[serviceName]) {
+        groups[serviceName] = []
+      }
+
+      groups[serviceName].push(volume)
+      return groups
+    }, {})
+  const groupedMounts = Object.entries(mountGroups)
   const validation = validateDockerCompose(compose)
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set())
 
@@ -240,11 +255,23 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
                                   <span className="font-medium">Ports</span>
                                 </div>
                                 {service.ports.map((port, i) => (
-                                  <div key={i} className="ml-4 text-xs">
-                                    <code className="bg-blue-500/20 text-blue-400 px-1 rounded mr-1">{port.host}</code>→
-                                    <code className="bg-green-500/20 text-green-400 px-1 rounded ml-1">
-                                      {port.container}
-                                    </code>
+                                  <div key={i} className="ml-4 text-xs flex items-center gap-2 flex-wrap">
+                                    {port.type === "published" ? (
+                                      <>
+                                        <code className="bg-blue-500/20 text-blue-400 px-1 rounded mr-1">{port.host}</code>
+                                        <span>→</span>
+                                        <code className="bg-green-500/20 text-green-400 px-1 rounded ml-1">
+                                          {port.container}
+                                        </code>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <code className="bg-green-500/20 text-green-400 px-1 rounded">{port.container}</code>
+                                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                                          Internal
+                                        </Badge>
+                                      </>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -476,13 +503,41 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {parsedData.volumes.map((volume, index) => (
-                <div key={volume}>
+              {namedVolumes.map((volume, index) => (
+                <div key={`${volume.type}-${volume.name}`}>
                   {index > 0 && <Separator className="my-3" />}
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-orange-400 break-all">{volume}</h4>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-orange-400 break-all">{volume.name}</h4>
+                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                        Named Volume
+                      </Badge>
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Named Docker volume - persistent storage that survives container restarts
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {groupedMounts.map(([serviceName, mounts], groupIndex) => (
+                <div key={`mount-group-${serviceName}`}>
+                  {(namedVolumes.length > 0 || groupIndex > 0) && <Separator className="my-3" />}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-orange-400 break-all">{serviceName}</h4>
+                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                        Mount{mounts.length !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {mounts.map((volume, mountIndex) => (
+                        <div key={`${serviceName}-${volume.name}-${mountIndex}`} className="text-sm break-all">
+                          <code className="bg-blue-500/20 text-blue-400 px-1 rounded mr-1">{volume.host}</code>
+                          <span className="text-muted-foreground">→</span>
+                          <code className="bg-green-500/20 text-green-400 px-1 rounded ml-1">{volume.container}</code>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

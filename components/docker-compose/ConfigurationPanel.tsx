@@ -364,8 +364,13 @@ export function ConfigurationPanel({ compose, view, onGoToLine }: ConfigurationP
                                     </div>
                                     <div className="ml-4 space-y-1">
                                       {service.depends_on.map((dependency, i) => (
-                                        <div key={i} className="text-xs break-all">
-                                          <code className="bg-muted px-1 rounded">{dependency}</code>
+                                        <div key={i} className="text-xs break-all flex items-center gap-2 flex-wrap">
+                                          <code className="bg-muted px-1 rounded">{dependency.name}</code>
+                                          {dependency.condition && (
+                                            <code className="bg-blue-500/20 text-blue-400 px-1 rounded">
+                                              {dependency.condition}
+                                            </code>
+                                          )}
                                         </div>
                                       ))}
                                     </div>

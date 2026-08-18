@@ -11,7 +11,7 @@ export interface ServiceConfig {
   environment: { key: string; value?: string }[]
   volumes: { host: string; container: string }[]
   networks: { name: string; ip?: string }[]
-  depends_on: string[]
+  depends_on: { name: string; condition?: string }[]
   restart?: string
   command?: string | string[] // Allow both string and array formats
   sysctls: { key: string; value: string }[]
@@ -90,6 +90,8 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
   const services: ServiceConfig[] = []
   const networks: NetworkConfig[] = []
   const volumes: string[] = []
+
+  const getIndentLevel = (line: string) => line.length - line.trimStart().length
 
   // Find section indices
   let servicesStartIndex = -1
@@ -369,19 +371,59 @@ export const parseDockerComposeStructured = (yaml: string): ParsedComposeData =>
         }
 
         if (dependsOnStartIndex !== -1) {
+          const dependsIndent = getIndentLevel(serviceLines[dependsOnStartIndex])
+
           for (let k = dependsOnStartIndex + 1; k < serviceLines.length; k++) {
             const dependsLine = serviceLines[k]
             const trimmedLine = dependsLine.trim()
+            const lineIndent = getIndentLevel(dependsLine)
 
-            // If we hit another service property, stop
-            if (trimmedLine.match(/^[a-zA-Z_][a-zA-Z0-9_-]*:/) && !trimmedLine.startsWith("-")) {
+            if (!trimmedLine) {
+              continue
+            }
+
+            // If we leave the depends_on block, stop
+            if (lineIndent <= dependsIndent) {
               break
             }
 
-            // Check for dependency lines (dash followed by content)
+            // Short list syntax:
+            // depends_on:
+            //   - db
             if (dependsLine.match(/^\s{2,6}-\s+/)) {
               const dependency = dependsLine.trim().substring(2).trim() // Remove "- " prefix
-              service.depends_on.push(dependency)
+              service.depends_on.push({ name: dependency })
+              continue
+            }
+
+            // Long mapping syntax:
+            // depends_on:
+            //   db:
+            //     condition: service_healthy
+            const dependencyMatch = dependsLine.match(/^\s+([a-zA-Z][a-zA-Z0-9_-]*):\s*$/)
+            if (dependencyMatch) {
+              const dependencyName = dependencyMatch[1]
+              let condition: string | undefined
+
+              for (let l = k + 1; l < serviceLines.length; l++) {
+                const dependencyConfigLine = serviceLines[l]
+                const dependencyConfigTrimmed = dependencyConfigLine.trim()
+                const dependencyConfigIndent = getIndentLevel(dependencyConfigLine)
+
+                if (!dependencyConfigTrimmed) {
+                  continue
+                }
+
+                if (dependencyConfigIndent <= lineIndent) {
+                  break
+                }
+
+                if (dependencyConfigTrimmed.startsWith("condition:")) {
+                  condition = dependencyConfigTrimmed.substring("condition:".length).trim()
+                }
+              }
+
+              service.depends_on.push({ name: dependencyName, condition })
             }
           }
         }

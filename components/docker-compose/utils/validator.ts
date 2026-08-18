@@ -65,6 +65,21 @@ export const validateDockerCompose = (yaml: string): ValidationResult => {
   }
 }
 
+function extractYamlMappingKey(line: string): string | null {
+  const trimmed = line.trim()
+
+  if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("-")) {
+    return null
+  }
+
+  const keyMatch = trimmed.match(/^(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_.-]+)):/)
+  if (!keyMatch) {
+    return null
+  }
+
+  return keyMatch[1] || keyMatch[2] || keyMatch[3] || null
+}
+
 function validateYamlSyntax(yaml: string, lines: string[], issues: ValidationIssue[]) {
   // Check for common YAML syntax issues
   lines.forEach((line, index) => {
@@ -215,19 +230,18 @@ function validateYamlSyntax(yaml: string, lines: string[], issues: ValidationIss
     }
 
     // Check for duplicate keys at the same level
-    if (trimmed.includes(":") && !trimmed.startsWith("#")) {
-      const key = trimmed.split(":")[0].trim()
+    const key = extractYamlMappingKey(line)
+    if (key) {
       const currentIndent = line.length - line.trimStart().length
 
       // Look for duplicate keys at the same indentation level
       for (let i = index + 1; i < lines.length; i++) {
         const nextLine = lines[i]
-        const nextTrimmed = nextLine.trim()
         const nextIndent = nextLine.length - nextLine.trimStart().length
 
         if (nextIndent < currentIndent) break // Different level
-        if (nextIndent === currentIndent && nextTrimmed.includes(":")) {
-          const nextKey = nextTrimmed.split(":")[0].trim()
+        if (nextIndent === currentIndent) {
+          const nextKey = extractYamlMappingKey(nextLine)
           if (key === nextKey) {
             issues.push({
               type: "error",

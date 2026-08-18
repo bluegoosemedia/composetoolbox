@@ -92,7 +92,7 @@ export function ValidationOverview({ validation, onGoToLine }: ValidationOvervie
         {/* Quick Summary for Valid Configs */}
         {validation.isValid && !validation.hasWarnings && (
           <div className="text-sm text-muted-foreground">
-            ✅ Your Docker Compose configuration is valid and follows best practices!
+            Your Docker Compose configuration is valid
           </div>
         )}
 

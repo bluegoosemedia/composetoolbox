@@ -21,6 +21,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.repository == 'bluegoosemedia/composetoolbox'
     steps:
       - name: Checkout

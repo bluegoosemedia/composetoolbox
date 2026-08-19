@@ -1,11 +1,17 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // Pin root to avoid Turbopack picking up the unrelated lockfile in the parent directory
+  turbopack: {
+    root: __dirname,
+  },
   experimental: {
     optimizePackageImports: ['lucide-react'],
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,

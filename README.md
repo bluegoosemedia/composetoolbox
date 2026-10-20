@@ -40,6 +40,10 @@ services:
 
 2. Run `docker-compose up -d` to start the container.
 
+### One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/ComposeToolbox/)
+
 ### Customizations
 
 You can create custom quick insert templates as well as changing what the compose file is that is opened everytime you load the page.
